@@ -1,0 +1,58 @@
+name: Deploy All Package Docs
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * *'  # Daily rebuild to fetch latest READMEs
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Build and Deploy All Packages
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          PACKAGES=(
+            "tafsir_library"
+            "hijri_date"
+            "flexible_sheet"
+            "floating_menu_expendable"
+            "floatica"
+            "moon_phase_plus"
+            "arabic_justified_text"
+          )
+
+          for PKG in "${PACKAGES[@]}"; do
+            PROJECT="docs-${PKG//_/-}"
+            echo "::group::Building $PKG → $PROJECT"
+
+            # Fetch README data
+            node scripts/fetch-data.mjs "$PKG"
+
+            # Build
+            PACKAGE_ID="$PKG" npx astro build
+
+            # Create project if it doesn't exist
+            npx wrangler pages project create "$PROJECT" --production-branch main 2>/dev/null || true
+
+            # Deploy
+            npx wrangler pages deploy dist --project-name "$PROJECT" --branch main
+
+            echo "::endgroup::"
+          done
