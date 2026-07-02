@@ -154,11 +154,11 @@ const next = currentIndex >= 0 && currentIndex < sections.length - 1 ? sections[
         display: flex; align-items: center; justify-content: space-between;
         padding: 0 1.5rem;
       }
-      .breadcrumb { display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; }
-      .breadcrumb a { color: var(--text-4); text-decoration: none; transition: color 0.15s; }
+      .breadcrumb { display: flex; align-items: center; gap: 0.5rem; font-size: 0.8rem; min-width: 0; overflow: hidden; }
+      .breadcrumb a { color: var(--text-4); text-decoration: none; transition: color 0.15s; white-space: nowrap; flex-shrink: 0; }
       .breadcrumb a:hover { color: var(--text); }
-      .breadcrumb .sep { color: var(--text-4); opacity: 0.4; }
-      .breadcrumb .current { color: var(--text-2); font-weight: 500; }
+      .breadcrumb .sep { color: var(--text-4); opacity: 0.4; flex-shrink: 0; }
+      .breadcrumb .current { color: var(--text-2); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 
       .topbar-actions { display: flex; align-items: center; gap: 0.5rem; }
       .pill {
@@ -396,14 +396,14 @@ const next = currentIndex >= 0 && currentIndex < sections.length - 1 ? sections[
 
       <div class="main">
         <header class="topbar">
-          <div style="display:flex;align-items:center;gap:0.875rem;">
+          <div style="display:flex;align-items:center;gap:0.875rem;min-width:0;flex:1;overflow:hidden;">
             <button id="menu-toggle" class="icon-btn">
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
             </button>
             <div class="breadcrumb">
               <a href="/">{pkg.name}</a>
               <span class="sep">/</span>
-              <span class="current">{currentSlug || 'home'}</span>
+              <span class="current">{sections.find(s => s.slug === currentSlug)?.title || currentSlug || 'home'}</span>
             </div>
           </div>
           <div class="topbar-actions">
