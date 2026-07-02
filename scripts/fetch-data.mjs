@@ -1,10 +1,7 @@
 #!/usr/bin/env node
 /**
- * Fetch README.md for each library, split into sections by ## headings,
+ * Fetch README.md for each library, split into sections by ## and ### headings,
  * and generate per-package data files for Astro to consume at build time.
- *
- * The script sets process.env.PACKAGE_ID so Astro knows which package to render.
- * Astro's getStaticPaths generates one page per section.
  *
  * Usage:
  *   node scripts/fetch-data.mjs <package-id>
@@ -67,35 +64,67 @@ async function fetchPubspec() {
   }
 }
 
-// Split README into sections by ## headings
+// Fix relative image URLs to absolute GitHub URLs
+function fixImageUrls(content, repo, branch) {
+  // Match ![alt](path) — fix relative paths
+  return content.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (match, alt, url) => {
+    // Skip badge URLs (shields.io, etc.)
+    if (url.includes('shields.io') || url.includes('badge') || url.startsWith('http')) {
+      return match;
+    }
+    // Fix relative paths → absolute GitHub raw URLs
+    if (url.startsWith('./') || url.startsWith('/')) {
+      const cleanPath = url.replace(/^\.\//, '').replace(/^\//, '');
+      return `![${alt}](https://raw.githubusercontent.com/${repo}/${branch}/${cleanPath})`;
+    }
+    return match;
+  });
+}
+
+// Fix HTML <img> tags with relative src
+function fixImgTags(content, repo, branch) {
+  return content.replace(/<img[^>]*src=["']([^"']+)["'][^>]*>/gi, (match, src) => {
+    if (src.includes('shields.io') || src.includes('badge') || src.startsWith('http')) {
+      return match;
+    }
+    if (src.startsWith('./') || src.startsWith('/')) {
+      const cleanPath = src.replace(/^\.\//, '').replace(/^\//, '');
+      return match.replace(src, `https://raw.githubusercontent.com/${repo}/${branch}/${cleanPath}`);
+    }
+    return match;
+  });
+}
+
+// Split README into sections — supports both ## and ### headings
 function splitReadme(readme) {
   const sections = [];
 
-  // Pre-section content (title, badges, intro before first ##)
-  const firstHeading = readme.indexOf('\n## ');
+  // Fix image URLs first
+  const fixedReadme = fixImageUrls(readme, pkg.repo, pkg.branch);
+  const readmeContent = fixImgTags(fixedReadme, pkg.repo, pkg.branch);
+
+  // Find first heading (## or ###)
+  const firstHeadingMatch = readmeContent.match(/\n#{2,3}\s+/);
+  const firstHeading = firstHeadingMatch ? firstHeadingMatch.index : -1;
+
   let intro = '';
-  let body = readme;
+  let body = readmeContent;
 
   if (firstHeading > 0) {
-    intro = readme.substring(0, firstHeading).trim();
-    body = readme.substring(firstHeading);
+    intro = readmeContent.substring(0, firstHeading).trim();
+    body = readmeContent.substring(firstHeading);
   }
 
-  // Overview section from intro
+  // Overview section from intro (before first ##)
   if (intro) {
-    // Extract title from first line
     const titleMatch = intro.match(/^#\s+(.+)$/m);
     const title = titleMatch ? titleMatch[1].trim() : pkg.name;
 
-    // Remove the # title line and HTML tags for overview content
-    const overviewContent = intro
-      .replace(/^#\s+.+$/m, '')
-      .replace(/<img[^>]*>/gi, '')
-      .replace(/<a[^>]*>[\s\S]*?<\/a>/gis, '')
-      .replace(/<p[^>]*>/gi, '')
-      .replace(/<\/p>/gi, '')
-      .replace(/<!--[\s\S]*?-->/g, '')
-      .replace(/^\s*$/gm, '')
+    // Keep badges, images, and description — just remove the # title line
+    let overviewContent = intro
+      .replace(/^#\s+.+$/m, '') // Remove title
+      .replace(/<!--[\\s\\S]*?-->/g, '') // Remove HTML comments
+      .replace(/^\\s*$/gm, '') // Remove empty lines
       .trim();
 
     if (overviewContent) {
@@ -107,31 +136,43 @@ function splitReadme(readme) {
     }
   }
 
-  // Split body by ## headings
-  const parts = body.split(/\n(?=##\s+)/);
+  // Split body by ## or ### headings
+  // Match lines starting with ## or ###
+  const parts = body.split(/\n(?=#{2,3}\s+)/);
 
   for (const part of parts) {
-    const match = part.match(/^##\s+(.+?)(?:\n([\s\S]*))?$/);
+    const match = part.match(/^(#{2,3})\s+([^\n]+)(?:\n([\s\S]*))?$/);
     if (!match) continue;
 
-    const rawTitle = match[1].trim();
-    const content = (match[2] || '').trim();
-    if (!content && !part.includes('```')) continue;
+    const rawTitle = match[2].trim();
+    let content = (match[3] || '').trim();
 
-    // Skip TOC sections and non-content
-    if (/^table of contents$/i.test(rawTitle)) continue;
+    // Skip TOC sections
+    if (/table of contents/i.test(rawTitle)) continue;
 
-    const slug = rawTitle
+    // Skip sections that are empty (no real content)
+    const plainContent = content.replace(/!\[.*?\]\(.*?\)/g, '').replace(/<[^>]*>/g, '').trim();
+    if (!plainContent && !content.includes('```') && !content.includes('http')) continue;
+
+    // Clean title for display and slug
+    const displayTitle = rawTitle.replace(/[^\w\s.-]/g, '').trim();
+    if (!displayTitle) continue;
+    const slug = displayTitle
       .toLowerCase()
       .replace(/[^\w\s-]/g, '')
       .replace(/\s+/g, '-')
       .replace(/-+/g, '-')
       .trim();
 
+    if (!slug) continue;
+
+    // Build section content with ## heading
+    const sectionContent = `## ${displayTitle}\n${content}`;
+
     sections.push({
       slug,
-      title: rawTitle.replace(/[^\w\s.-]/g, '').trim(),
-      content: part, // Keep the ## heading in content for rendering
+      title: displayTitle,
+      content: sectionContent,
     });
   }
 
