@@ -192,9 +192,15 @@ function splitReadme(readme) {
 
     // Skip TOC, duplicates, and subtitle lines
     if (/table of contents/i.test(rawTitle)) continue;
-    if (sections.some(s => s.slug === slug)) continue;
     if (content.length < 20 && !content.includes('```') && !content.includes('http')) continue;
     if (!slug) continue;
+
+    // If this is Overview and we already have an overview section, merge content
+    const existing = sections.find(s => s.slug === slug);
+    if (existing) {
+      existing.content = existing.content + '\n\n' + content;
+      continue;
+    }
 
     // Build section content with ## heading
     const sectionContent = `## ${displayTitle}\n${content}`;
