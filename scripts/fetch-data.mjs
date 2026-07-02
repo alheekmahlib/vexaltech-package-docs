@@ -95,36 +95,47 @@ function fixImgTags(content, repo, branch) {
   });
 }
 
-// Split README into sections — supports both ## and ### headings
+// Convert HTML <h2 id="slug">Title</h2> to ## Title before splitting
+function normalizeHtmlHeadings(readme) {
+  return readme.replace(/<h[23][^>]*>(.+?)<\/h[23]>/gis, (match, title) => {
+    const cleanTitle = title.replace(/<[^>]*>/g, '').trim();
+    return `\n## ${cleanTitle}\n`;
+  });
+}
+
+// Split README into sections — supports ## headings (including HTML-h2 normalized)
 function splitReadme(readme) {
   const sections = [];
 
+  // Normalize HTML headings to markdown
+  const normalized = normalizeHtmlHeadings(readme);
+
   // Fix image URLs first
-  const fixedReadme = fixImageUrls(readme, pkg.repo, pkg.branch);
-  const readmeContent = fixImgTags(fixedReadme, pkg.repo, pkg.branch);
+  const readmeContent = fixImageUrls(normalized, pkg.repo, pkg.branch);
+  const fixedContent = fixImgTags(readmeContent, pkg.repo, pkg.branch);
 
   // Find first heading (## or ###)
-  const firstHeadingMatch = readmeContent.match(/\n#{2,3}\s+/);
+  // Pre-section content (title, badges, intro before first heading)
+  const firstHeadingMatch = fixedContent.match(/\n#{2,3}\s+/);
   const firstHeading = firstHeadingMatch ? firstHeadingMatch.index : -1;
 
   let intro = '';
-  let body = readmeContent;
+  let body = fixedContent;
 
   if (firstHeading > 0) {
-    intro = readmeContent.substring(0, firstHeading).trim();
-    body = readmeContent.substring(firstHeading);
+    intro = fixedContent.substring(0, firstHeading).trim();
+    body = fixedContent.substring(firstHeading);
   }
 
-  // Overview section from intro (before first ##)
+  // Overview section from intro
   if (intro) {
     const titleMatch = intro.match(/^#\s+(.+)$/m);
     const title = titleMatch ? titleMatch[1].trim() : pkg.name;
 
-    // Keep badges, images, and description — just remove the # title line
     let overviewContent = intro
-      .replace(/^#\s+.+$/m, '') // Remove title
-      .replace(/<!--[\\s\\S]*?-->/g, '') // Remove HTML comments
-      .replace(/^\\s*$/gm, '') // Remove empty lines
+      .replace(/^#\s+.+$/m, '')
+      .replace(/<!--[\\s\\S]*?-->/g, '')
+      .replace(/^\\s*$/gm, '')
       .trim();
 
     if (overviewContent) {
@@ -136,23 +147,38 @@ function splitReadme(readme) {
     }
   }
 
-  // Split body by ## or ### headings
-  // Match lines starting with ## or ###
-  const parts = body.split(/\n(?=#{2,3}\s+)/);
+  // Split body by headings — use ## if available, otherwise fall back to ###
+  const hasH2 = /\n##\s+/.test(body);
+  const headingPattern = hasH2 ? /\n(?=##\s+)/ : /\n(?=##\s+)/;
+  const parts = body.split(headingPattern);
+
+  // If no ## sections found, try ### as top-level
+  if (!hasH2) {
+    const h3Parts = body.split(/\n(?=###\s+)/);
+    if (h3Parts.length > 1) {
+      for (const part of h3Parts) {
+        const m = part.match(/^###\s+([^\n]+)(?:\n([\s\S]*))?$/);
+        if (!m) continue;
+        const rawTitle = m[1].trim();
+        let content = (m[2] || '').trim();
+        const displayTitle = rawTitle.replace(/[^\w\s.-]/g, '').trim();
+        if (!displayTitle) continue;
+        const slug = displayTitle.toLowerCase().replace(/[^\w\s-]/g, '').replace(/\s+/g, '-').replace(/-+/g, '-').trim();
+        if (/table of contents/i.test(rawTitle)) continue;
+        if (sections.some(s => s.slug === slug)) continue;
+        if (content.length < 20 && !content.includes('```') && !content.includes('http')) continue;
+        if (!slug) continue;
+        sections.push({ slug, title: displayTitle, content: `## ${displayTitle}\n${content}` });
+      }
+    }
+  } else {
 
   for (const part of parts) {
-    const match = part.match(/^(#{2,3})\s+([^\n]+)(?:\n([\s\S]*))?$/);
+    const match = part.match(/^##\s+([^\n]+)(?:\n([\s\S]*))?$/);
     if (!match) continue;
 
-    const rawTitle = match[2].trim();
-    let content = (match[3] || '').trim();
-
-    // Skip TOC sections
-    if (/table of contents/i.test(rawTitle)) continue;
-
-    // Skip sections that are empty (no real content)
-    const plainContent = content.replace(/!\[.*?\]\(.*?\)/g, '').replace(/<[^>]*>/g, '').trim();
-    if (!plainContent && !content.includes('```') && !content.includes('http')) continue;
+    const rawTitle = match[1].trim();
+    let content = (match[2] || '').trim();
 
     // Clean title for display and slug
     const displayTitle = rawTitle.replace(/[^\w\s.-]/g, '').trim();
@@ -164,6 +190,10 @@ function splitReadme(readme) {
       .replace(/-+/g, '-')
       .trim();
 
+    // Skip TOC, duplicates, and subtitle lines
+    if (/table of contents/i.test(rawTitle)) continue;
+    if (sections.some(s => s.slug === slug)) continue;
+    if (content.length < 20 && !content.includes('```') && !content.includes('http')) continue;
     if (!slug) continue;
 
     // Build section content with ## heading
@@ -175,6 +205,7 @@ function splitReadme(readme) {
       content: sectionContent,
     });
   }
+  } // end else
 
   return sections;
 }
