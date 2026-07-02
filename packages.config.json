@@ -1,0 +1,58 @@
+[
+  {
+    "id": "tafsir_library",
+    "name": "tafsir_library",
+    "repo": "alheekmahlib/tafsir_library",
+    "branch": "main",
+    "org": "alheekmahlib",
+    "accent": "#D6B46A"
+  },
+  {
+    "id": "hijri_date",
+    "name": "hijri_date",
+    "repo": "alheekmahlib/hijri_date",
+    "branch": "master",
+    "org": "alheekmahlib",
+    "accent": "#2cacbf"
+  },
+  {
+    "id": "flexible_sheet",
+    "name": "flexible_sheet",
+    "repo": "alheekmahlib/flexible_sheet",
+    "branch": "main",
+    "org": "alheekmahlib",
+    "accent": "#2cacbf"
+  },
+  {
+    "id": "floating_menu_expendable",
+    "name": "floating_menu_expendable",
+    "repo": "alheekmahlib/floating_menu_expendable",
+    "branch": "main",
+    "org": "alheekmahlib",
+    "accent": "#D6B46A"
+  },
+  {
+    "id": "floatica",
+    "name": "floatica",
+    "repo": "alheekmahlib/floatica",
+    "branch": "main",
+    "org": "alheekmahlib",
+    "accent": "#2cacbf"
+  },
+  {
+    "id": "moon_phase_plus",
+    "name": "moon_phase_plus",
+    "repo": "helal-muneer/moon_phase_plus",
+    "branch": "master",
+    "org": "helal-muneer",
+    "accent": "#3F51B5"
+  },
+  {
+    "id": "arabic_justified_text",
+    "name": "arabic_justified_text",
+    "repo": "AhmedAlboishe/arabic_justified_text",
+    "branch": "main",
+    "org": "AhmedAlboishe",
+    "accent": "#1976D2"
+  }
+]

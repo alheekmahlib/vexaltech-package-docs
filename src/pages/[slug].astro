@@ -1,0 +1,67 @@
+---
+import DocLayout from '../layouts/DocLayout.astro';
+import { renderMarkdown } from '../lib/markdown';
+
+export function getStaticPaths() {
+  const pkgId = process.env.PACKAGE_ID || 'tafsir_library';
+  const allData = import.meta.glob('../data/*.json', { eager: true });
+  const pkgData = (allData[`../data/${pkgId}.json`] as any)?.default || Object.values(allData)[0] as any;
+  const sections: any[] = pkgData.sections;
+
+  return sections.map(s => ({
+    params: { slug: s.slug },
+    props: { section: s, sections, pkgData },
+  }));
+}
+
+const { section, sections, pkgData } = Astro.props as any;
+
+const pkg = {
+  id: pkgData.id,
+  name: pkgData.name,
+  version: pkgData.version,
+  description: pkgData.description,
+  pubdevUrl: pkgData.pubdevUrl,
+  githubUrl: pkgData.githubUrl,
+  accent: pkgData.accent,
+};
+
+const { slug } = Astro.params;
+
+// Render markdown with syntax highlighting (build time)
+const htmlContent = renderMarkdown(section.content);
+
+// Add IDs to headings
+const slugify = (text: string) => text.toLowerCase().replace(/[^\w\s-]/g, '').replace(/\s+/g, '-');
+
+let enhancedHtml = htmlContent as string;
+enhancedHtml = enhancedHtml.replace(/<(h[23])>([^<]+)<\/\1>/gi, (_match, tag, text) => {
+  const id = slugify(text.replace(/<[^>]*>/g, ''));
+  return `<${tag} id="${id}">${text}</${tag}>`;
+});
+
+// Extract headings for TOC
+const headingRegex = /<h([23])\s+id="([^"]+)"[^>]*>([^<]+)<\/h\1>/gi;
+let match: any;
+const headings: any[] = [];
+while ((match = headingRegex.exec(enhancedHtml)) !== null) {
+  headings.push({ level: parseInt(match[1]), id: match[2], text: match[3] });
+}
+---
+
+<DocLayout pkg={pkg} sections={sections} currentSlug={slug}>
+  <article class="prose-doc max-w-none" set:html={enhancedHtml} />
+
+  {headings.length > 0 && (
+    <div slot="toc">
+      <p class="toc-title">On this page</p>
+      <ul class="toc-list">
+        {headings.map((h: any) => (
+          <li class={`toc-item ${h.level === 3 ? 'h3' : ''}`}>
+            <a href={`#${h.id}`} class={`toc-link ${h.level === 3 ? 'h3' : ''}`}>{h.text}</a>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )}
+</DocLayout>

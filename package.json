@@ -1,0 +1,25 @@
+{
+  "name": "vexaltech-package-docs",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "PACKAGE_ID=tafsir_library astro dev",
+    "fetch": "node scripts/fetch-data.mjs",
+    "build:pkg": "node scripts/build-all.mjs",
+    "build": "node scripts/build-all.mjs",
+    "build:all": "node scripts/build-all.mjs",
+    "preview": "astro preview"
+  },
+  "dependencies": {
+    "@astrojs/tailwind": "^6.0.0",
+    "astro": "^5.13.0",
+    "highlight.js": "^11.11.1",
+    "marked": "^15.0.0",
+    "marked-highlight": "^2.2.4",
+    "prismjs": "^1.30.0",
+    "tailwindcss": "^3.4.17"
+  },
+  "devDependencies": {
+    "@types/prismjs": "^1.26.6"
+  }
+}
