@@ -1,11 +1,34 @@
-name: Deploy All Package Docs
+name: Deploy Package Docs
 
 on:
   push:
     branches: [main]
+    paths:
+      - 'scripts/**'
+      - 'src/**'
+      - 'package.json'
+      - 'package-lock.json'
   workflow_dispatch:
-  schedule:
-    - cron: '0 0 * * *'  # Daily rebuild to fetch latest READMEs
+    inputs:
+      package:
+        description: 'Which package to build & deploy?'
+        required: true
+        type: choice
+        default: 'all'
+        options:
+          - all
+          - tafsir_library
+          - hijri_date
+          - flexible_sheet
+          - floating_menu_expendable
+          - floatica
+          - moon_phase_plus
+          - arabic_justified_text
+
+# Cancel previous runs of the same workflow
+concurrency:
+  group: deploy-docs
+  cancel-in-progress: true
 
 jobs:
   deploy:
@@ -17,30 +40,30 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: npm
 
       - name: Install
         run: npm ci
 
-      - name: Build and Deploy All Packages
+      - name: Determine packages to build
+        id: packages
+        run: |
+          INPUT="${{ github.event.inputs.package }}"
+          if [ -z "$INPUT" ] || [ "$INPUT" = "all" ]; then
+            echo "list=tafsir_library hijri_date flexible_sheet floating_menu_expendable floatica moon_phase_plus arabic_justified_text" >> $GITHUB_OUTPUT
+          else
+            echo "list=$INPUT" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build and Deploy
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
-          PACKAGES=(
-            "tafsir_library"
-            "hijri_date"
-            "flexible_sheet"
-            "floating_menu_expendable"
-            "floatica"
-            "moon_phase_plus"
-            "arabic_justified_text"
-          )
-
-          for PKG in "${PACKAGES[@]}"; do
+          for PKG in ${{ steps.packages.outputs.list }}; do
             PROJECT="docs-${PKG//_/-}"
-            echo "::group::Building $PKG → $PROJECT"
+            echo "::group::🏗️ Building $PKG → $PROJECT"
 
             # Fetch README data
             node scripts/fetch-data.mjs "$PKG"
@@ -52,7 +75,7 @@ jobs:
             npx wrangler pages project create "$PROJECT" --production-branch main 2>/dev/null || true
 
             # Deploy
-            npx wrangler pages deploy dist --project-name "$PROJECT" --branch main
+            npx wrangler pages deploy dist --project-name "$PROJECT" --branch main --commit-dirty=true
 
             echo "::endgroup::"
           done
