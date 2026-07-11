@@ -24,6 +24,7 @@ on:
           - floatica
           - moon_phase_plus
           - arabic_justified_text
+          - quran_audio
 
 # Cancel previous runs of the same workflow
 concurrency:
@@ -51,7 +52,7 @@ jobs:
         run: |
           INPUT="${{ github.event.inputs.package }}"
           if [ -z "$INPUT" ] || [ "$INPUT" = "all" ]; then
-            echo "list=tafsir_library hijri_date flexible_sheet floating_menu_expendable floatica moon_phase_plus arabic_justified_text" >> $GITHUB_OUTPUT
+            echo "list=tafsir_library hijri_date flexible_sheet floating_menu_expendable floatica moon_phase_plus arabic_justified_text quran_audio" >> $GITHUB_OUTPUT
           else
             echo "list=$INPUT" >> $GITHUB_OUTPUT
           fi

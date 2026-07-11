@@ -54,5 +54,13 @@
     "branch": "main",
     "org": "AhmedAlboishe",
     "accent": "#FF6A48"
+  },
+  {
+    "id": "quran_audio",
+    "name": "quran_audio",
+    "repo": "alheekmahlib/quran_audio",
+    "branch": "main",
+    "org": "alheekmahlib",
+    "accent": "#113A38"
   }
 ]
